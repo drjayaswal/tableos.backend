@@ -3,7 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "../../db";
 import { emailOTP } from "better-auth/plugins";
 import * as schema from "../../db/schema";
-const PRODUCTION = false;
+const PRODUCTION = true;
 /**
  * Environment Validation
  * Ensures critical authentication variables are loaded before initialization.
