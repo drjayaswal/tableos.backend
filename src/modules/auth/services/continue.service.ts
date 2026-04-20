@@ -76,122 +76,99 @@ export const AuthController = {
             const foundUser = await db.query.user.findFirst({
                 where: eq(user.email, email)
             });
-            if (!foundUser) {
-                return {
-                    status: 400,
-                    message: `No account with ${email} exists`,
-                    data: {}
-                };
-            }
-            if (foundUser.role !== "owner") {
-                return {
-                    status: 400,
-                    message: `Account with ${email} exists but is not an owner`,
-                    data: {}
-                };
-            }
-        const authResponse = await auth.api.signInEmailOTP({
-            body: { email, otp, rememberMe: true },
-            headers: new Headers(headers),
-            asResponse: true
-        });
 
-        if (!authResponse.ok) {
-            set.status = 401;
-            return { status: 401, message: "Invalid OTP", data: {} };
+            if (!foundUser || foundUser.role !== "owner") {
+                set.status = 400;
+                return { status: 400, message: "Invalid account or role", data: {} };
+            }
+
+            const authResponse = await auth.api.signInEmailOTP({
+                body: { email, otp, rememberMe: true },
+                headers: new Headers(headers),
+                asResponse: true
+            });
+
+            if (!authResponse.ok) {
+                set.status = 401;
+                return { status: 401, message: "Invalid OTP", data: {} };
+            }
+
+            const result = await authResponse.json() as AuthResponseData;
+
+            // Apply the cookie fix for Production (SameSite=None)
+            const authCookies = authResponse.headers.getSetCookie();
+            set.headers['set-cookie'] = [
+                ...authCookies,
+                `user_role=owner; Path=/; Max-Age=604800; SameSite=None; Secure`,
+                `store_id=${foundUser.storeId}; Path=/; Max-Age=604800; SameSite=None; Secure`
+            ];
+
+            return {
+                status: 200,
+                message: "Verification successful.",
+                data: {
+                    user: { ...result.user, role: 'owner' },
+                    // CRITICAL: Always return token for the Middleware fix
+                    token: result.token
+                }
+            };
+        } catch (error: any) {
+            set.status = 500;
+            return { status: 500, message: error.message, data: {} };
         }
-
-        const result = await authResponse.json() as AuthResponseData;
-
-        /** * FIX 1: GET ALL COOKIES
-         * Better Auth might send multiple set-cookie headers (session + csrf).
-         * getSetCookie() is a modern standard to get them as an array.
-         */
-        const authCookies = authResponse.headers.getSetCookie();
-
-        // FIX 2: Correctly merge your custom cookies with Auth cookies
-        // We ensure they have the exact SameSite/Secure attributes to match Auth
-        const customCookies = [
-            `user_role=owner; Path=/; Max-Age=604800; SameSite=None; Secure`,
-            `store_id=${foundUser.storeId}; Path=/; Max-Age=604800; SameSite=None; Secure`
-        ];
-
-        // Combine and set directly on Elysia's header object
-        set.headers['set-cookie'] = [...authCookies, ...customCookies];
-
-        const userAgent = headers['user-agent']?.toLowerCase() || '';
-        const isMobileApp = userAgent.includes('expo') || headers['x-client-type'] === 'mobile-app';
-
-        return {
-            status: 200,
-            message: "Verification successful.",
-            data: {
-                user: { ...result.user, role: 'owner' },
-                token: isMobileApp ? result.token : undefined
-            }
-        };
-    } catch (error: any) {
-        set.status = 500;
-        return { status: 500, message: error.message, data: {} };
-    }
-},
+    },
     /** 
-     * verifyContinuePassword
-     * Authenticates an owner using email and password.
-     * Input: { email: string, password: string }
-     * Workflow: Validates credentials -> Sets session cookie/token.
-    */
+       * verifyContinuePassword
+       * Authenticates an owner using email and password.
+       * Input: { email: string, password: string }
+       * Workflow: Validates credentials -> Sets session cookie/token.
+      */
+
     verifyContinuePassword: async ({ body, headers, set }: { body: any, headers: any, set: any }) => {
         try {
             const { email, password } = body;
             const foundUser = await db.query.user.findFirst({
                 where: eq(user.email, email)
             });
+
             if (!foundUser) {
-                return {
-                    status: 400,
-                    message: `No account with ${email} exists`,
-                    data: {}
-                };
+                set.status = 400;
+                return { status: 400, message: "User not found", data: {} };
             }
+
             const authResponse = await auth.api.signInEmail({
-                body: {
-                    email: email,
-                    password: password,
-                    rememberMe: true,
-                },
+                body: { email, password, rememberMe: true },
                 headers: new Headers(headers),
                 asResponse: true
             });
+
             if (!authResponse.ok) {
-                return {
-                    status: 401,
-                    message: "Invalid or expired verification OTP",
-                    data: {}
-                };
+                set.status = 401;
+                return { status: 401, message: "Invalid credentials", data: {} };
             }
+
             const result = await authResponse.json() as AuthResponseData;
-            const setCookie = authResponse.headers.get('set-cookie');
-            if (setCookie) set.headers['set-cookie'] = [setCookie,
-                `user_role=staff; Path=/; Max-Age=604800;`,
-                `store_id=${foundUser.storeId}; Path=/; Max-Age=604800;`
-            ]
-            const userAgent = headers['user-agent']?.toLowerCase() || '';
-            const isMobileApp = userAgent.includes('expo') || headers['x-client-type'] === 'mobile-app';
+
+            // FIX: Use getSetCookie() here too!
+            const authCookies = authResponse.headers.getSetCookie();
+
+            set.headers['set-cookie'] = [
+                ...authCookies,
+                `user_role=staff; Path=/; Max-Age=604800; SameSite=None; Secure`,
+                `store_id=${foundUser.storeId}; Path=/; Max-Age=604800; SameSite=None; Secure`
+            ];
+
             return {
                 status: 200,
-                message: "Verification successful.",
+                message: "Login successful.",
                 data: {
                     user: { ...result.user, role: 'owner' },
-                    token: isMobileApp ? result.token : undefined
+                    token: result.token
                 }
             };
         } catch (error: any) {
-            console.error("[AUTH_VERIFY_CONTINUE_PASSWORD_ERROR]:", error);
-            return {
-                status: 500,
-                message: error.message || "Internal server error", data: {}
-            };
+            set.status = 500;
+            return { status: 500, message: error.message, data: {} };
         }
     }
 };

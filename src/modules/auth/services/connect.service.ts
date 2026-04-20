@@ -74,6 +74,7 @@ export const AuthController = {
                 };
             }
             const result = await authResponse.json() as AuthResponseData;
+            const authCookies = authResponse.headers.getSetCookie();
             const storeRegistrationResult = await asyncDb.transaction(async (tx) => {
                 const storeId = crypto.randomUUID();
                 const baseSlug = (name || 'store').toLowerCase().replace(/\s+/g, '-');
@@ -98,7 +99,6 @@ export const AuthController = {
                         isOccupied: false,
                         isActive: true,
                     }));
-
                     await tx.insert(table).values(tablesToInsert);
                 }
                 await tx.update(user)
@@ -110,33 +110,28 @@ export const AuthController = {
                     .where(eq(user.id, result.user.id));
                 return { storeId };
             });
-            const setCookie = authResponse.headers.get('set-cookie');
-            if (setCookie) {
-                set.headers['set-cookie'] = [setCookie,
-                    `user_role=owner; Path=/; Max-Age=604800;`,
-                    `store_id=${storeRegistrationResult.storeId}; Path=/; Max-Age=604800;`
-                ];
-            }
-            const userAgent = headers['user-agent']?.toLowerCase() || '';
-            const isMobileApp = userAgent.includes('expo') || headers['x-client-type'] === 'mobile-app';
+            set.headers['set-cookie'] = [
+                ...authCookies,
+                `user_role=owner; Path=/; Max-Age=604800; SameSite=None; Secure`,
+                `store_id=${storeRegistrationResult.storeId}; Path=/; Max-Age=604800; SameSite=None; Secure`
+            ];
             return {
                 status: 200,
                 message: "Authentication successful and store created.",
                 data: {
                     user: { ...result.user, role: 'owner' },
                     storeId: storeRegistrationResult.storeId,
-                    token: isMobileApp ? result.token : undefined
+                    token: result.token
                 }
             };
         } catch (error: any) {
             console.error("[AUTH_VERIFY_STORE_ERROR]:", error);
+            set.status = 500;
             return {
                 status: 500,
-                message: error.message.includes('slug')
-                    ? "Store name already taken."
-                    : "Registration failed.",
+                message: error.message.includes('slug') ? "Store name taken" : "Registration failed",
                 data: {}
             };
         }
     }
-};
+}
