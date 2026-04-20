@@ -1,0 +1,26 @@
+---
+title: tableos
+emoji: 🍽️
+colorFrom: purple
+colorTo: yellow
+sdk: docker
+app_port: 7860
+---
+
+# tableos
+
+Management system for horeca stores
+
+To install dependencies:
+
+```bash
+bun install
+```
+
+To run:
+
+```bash
+bun run index.ts
+```
+
+This project was created using `bun init` in bun v1.3.10. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
