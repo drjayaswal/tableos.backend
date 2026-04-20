@@ -2,8 +2,17 @@ import { eq } from 'drizzle-orm';
 import { db } from '../../../db';
 import { user } from '../../../db/schema';
 import { auth } from '../auth';
-import type { AuthResponseData } from '../../../types/response';
 
+interface AuthResponseData {
+    user: {
+        id: string;
+        email: string;
+        emailVerified: boolean;
+        name?: string;
+        image?: string;
+    };
+    token?: string; // Only present if using mobile/bearer tokens
+}
 /**
  * ContinueController (Auth)
  * 
@@ -81,47 +90,51 @@ export const AuthController = {
                     data: {}
                 };
             }
-            const authResponse = await auth.api.signInEmailOTP({
-                body: {
-                    email, otp,
-                    rememberMe: true,
-                },
-                headers: new Headers(headers),
-                asResponse: true
-            });
-            if (!authResponse.ok) {
-                return {
-                    status: 401,
-                    message: "Invalid or expired verification OTP",
-                    data: {}
-                };
-            }
-            const result = await authResponse.json() as AuthResponseData;
-            const setCookie = authResponse.headers.get('set-cookie');
-            if (setCookie) {
-                set.headers['set-cookie'] = [setCookie,
-                    `user_role=owner; Path=/; Max-Age=604800;`,
-                    `store_id=${foundUser.storeId}; Path=/; Max-Age=604800;`
-                ]
-            }
-            const userAgent = headers['user-agent']?.toLowerCase() || '';
-            const isMobileApp = userAgent.includes('expo') || headers['x-client-type'] === 'mobile-app';
-            return {
-                status: 200,
-                message: "Verification successful.",
-                data: {
-                    user: { ...result.user, role: 'owner' },
-                    token: isMobileApp ? result.token : undefined
-                }
-            };
-        } catch (error: any) {
-            console.error("[AUTH_VERIFY_CONTINUE_OTP_ERROR]:", error);
-            return {
-                status: 500,
-                message: error.message || "Internal server error", data: {}
-            };
+        const authResponse = await auth.api.signInEmailOTP({
+            body: { email, otp, rememberMe: true },
+            headers: new Headers(headers),
+            asResponse: true
+        });
+
+        if (!authResponse.ok) {
+            set.status = 401;
+            return { status: 401, message: "Invalid OTP", data: {} };
         }
-    },
+
+        const result = await authResponse.json() as AuthResponseData;
+
+        /** * FIX 1: GET ALL COOKIES
+         * Better Auth might send multiple set-cookie headers (session + csrf).
+         * getSetCookie() is a modern standard to get them as an array.
+         */
+        const authCookies = authResponse.headers.getSetCookie();
+
+        // FIX 2: Correctly merge your custom cookies with Auth cookies
+        // We ensure they have the exact SameSite/Secure attributes to match Auth
+        const customCookies = [
+            `user_role=owner; Path=/; Max-Age=604800; SameSite=None; Secure`,
+            `store_id=${foundUser.storeId}; Path=/; Max-Age=604800; SameSite=None; Secure`
+        ];
+
+        // Combine and set directly on Elysia's header object
+        set.headers['set-cookie'] = [...authCookies, ...customCookies];
+
+        const userAgent = headers['user-agent']?.toLowerCase() || '';
+        const isMobileApp = userAgent.includes('expo') || headers['x-client-type'] === 'mobile-app';
+
+        return {
+            status: 200,
+            message: "Verification successful.",
+            data: {
+                user: { ...result.user, role: 'owner' },
+                token: isMobileApp ? result.token : undefined
+            }
+        };
+    } catch (error: any) {
+        set.status = 500;
+        return { status: 500, message: error.message, data: {} };
+    }
+},
     /** 
      * verifyContinuePassword
      * Authenticates an owner using email and password.
