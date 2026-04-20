@@ -11,7 +11,7 @@ export function initSocket() {
     // Initialize standard Socket.IO server with CORS configuration
     io = new Server({
         cors: {
-            origin: ["http://localhost:3000", "https://www.tableos.com"],
+            origin: ["http://localhost:3000", process.env.FRONTEND_URL!],
             methods: ["GET", "POST"],
             credentials: true
         }

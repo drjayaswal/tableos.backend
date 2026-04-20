@@ -46,24 +46,22 @@ export const auth = betterAuth({
     }),
   ],
 
+  baseURL: process.env.BETTER_AUTH_URL, 
+  secret: process.env.BETTER_AUTH_SECRET,
+  
   trustedOrigins: [process.env.FRONTEND_URL],
 
-  secret: process.env.BETTER_AUTH_SECRET,
-  /**
-   * Session Management
-   * Configures a 7-day session lifetime with aggressive server-side cookie caching 
-   * to reduce database lookup overhead on frequent requests.
-   */
-session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 days
+  session: {
+    expiresIn: 60 * 60 * 24 * 7,
     updateAge: 60 * 60 * 24,
   },
+
   advanced: {
+    useSecureCookies: PRODUCTION, 
     defaultCookieAttributes: {
-      sameSite: PRODUCTION ? "none" : "lax",
+      sameSite: PRODUCTION ? "none" : "lax", 
       secure: PRODUCTION,
       httpOnly: true,
-      // Increase this to 8 days to give a 1-day buffer for time-zone mismatches
       maxAge: 60 * 60 * 24 * 8, 
     },
   }

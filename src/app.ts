@@ -36,6 +36,7 @@ export const app = new Elysia()
 
   .listen({
     port: port,
+    hostname: '0.0.0.0',
     ...engine.handler()
   });
 
