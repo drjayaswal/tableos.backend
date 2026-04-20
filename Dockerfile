@@ -1,5 +1,5 @@
 # --- Stage 1: Build ---
-FROM oven/bun:latest AS builder
+FROM oven/bun:1.1-slim AS builder
 
 WORKDIR /app
 
@@ -10,23 +10,22 @@ RUN bun install --frozen-lockfile
 # Copy source code
 COPY . .
 
-# Optional: If you need to build/transpile, do it here. 
-# For Elysia, we usually just run the TS files directly with Bun.
-
-# --- Stage 2: Production (Slim) ---
-FROM oven/bun:distroless AS runner
+# --- Stage 2: Production ---
+FROM oven/bun:1.1-slim AS runner
 
 WORKDIR /app
 
-# Copy ONLY the necessary files from the builder
+# Copy ONLY necessary files
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/package.json ./package.json
 
-# Set Hugging Face defaults
+# Ensure the app listens on 0.0.0.0
 ENV PORT=7860
 ENV NODE_ENV=production
+ENV HOSTNAME="0.0.0.0"
+
 EXPOSE 7860
 
-# Run with Bun's production flags
+# Start the app
 CMD ["bun", "run", "src/app.ts"]
