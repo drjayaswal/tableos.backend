@@ -3,11 +3,14 @@ FROM oven/bun:1.1-slim AS builder
 
 WORKDIR /app
 
-# Install dependencies
-COPY package.json bun.lockb ./
+# Copy package.json and the NEW bun.lock file
+COPY package.json ./
+COPY bun.lock ./
+
+# Install dependencies (will use bun.lock automatically)
 RUN bun install --frozen-lockfile
 
-# Copy source code
+# Copy the rest of the source code
 COPY . .
 
 # --- Stage 2: Production ---
@@ -15,17 +18,17 @@ FROM oven/bun:1.1-slim AS runner
 
 WORKDIR /app
 
-# Copy ONLY necessary files
+# Copy only what we need to run the app
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/package.json ./package.json
 
-# Ensure the app listens on 0.0.0.0
+# Environment settings for Hugging Face
 ENV PORT=7860
 ENV NODE_ENV=production
 ENV HOSTNAME="0.0.0.0"
 
 EXPOSE 7860
 
-# Start the app
+# Adjust this if your entry point is actually src/index.ts
 CMD ["bun", "run", "src/app.ts"]
