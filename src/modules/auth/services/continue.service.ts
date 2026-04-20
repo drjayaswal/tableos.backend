@@ -108,7 +108,7 @@ export const AuthController = {
                 message: "Verification successful.",
                 data: {
                     user: { ...result.user, role: 'owner' },
-                    // CRITICAL: Always return token for the Middleware fix
+                    storeId: foundUser.storeId,
                     token: result.token
                 }
             };
@@ -149,7 +149,6 @@ export const AuthController = {
 
             const result = await authResponse.json() as AuthResponseData;
 
-            // FIX: Use getSetCookie() here too!
             const authCookies = authResponse.headers.getSetCookie();
 
             set.headers['set-cookie'] = [
@@ -163,6 +162,7 @@ export const AuthController = {
                 message: "Login successful.",
                 data: {
                     user: { ...result.user, role: 'owner' },
+                    storeId: foundUser.storeId,
                     token: result.token
                 }
             };
