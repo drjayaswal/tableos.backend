@@ -13,7 +13,7 @@ initSocket();
 export const app = new Elysia()
   .use(
     cors({
-      origin: ["http://localhost:3000", "https://www.tableos.com"],
+      origin: ["http://localhost:3000", process.env.FRONTEND_URL!],
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
       credentials: true,

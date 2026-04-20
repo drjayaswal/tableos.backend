@@ -1,34 +1,27 @@
-# --- Stage 1: Build ---
-FROM oven/bun:1.1-slim AS builder
+# Change "1.1-slim" to "latest" or "1.2-slim"
+FROM oven/bun:latest AS builder
 
 WORKDIR /app
 
-# Copy package.json and the NEW bun.lock file
-COPY package.json ./
-COPY bun.lock ./
+COPY package.json bun.lock ./
+# If the lockfile is still giving you grief, remove --frozen-lockfile 
+# to let Docker regenerate a compatible one during the build
+RUN bun install
 
-# Install dependencies (will use bun.lock automatically)
-RUN bun install --frozen-lockfile
-
-# Copy the rest of the source code
 COPY . .
 
-# --- Stage 2: Production ---
-FROM oven/bun:1.1-slim AS runner
-
+# --- Stage 2 ---
+FROM oven/bun:latest AS runner
 WORKDIR /app
 
-# Copy only what we need to run the app
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/package.json ./package.json
 
-# Environment settings for Hugging Face
 ENV PORT=7860
 ENV NODE_ENV=production
 ENV HOSTNAME="0.0.0.0"
 
 EXPOSE 7860
 
-# Adjust this if your entry point is actually src/index.ts
 CMD ["bun", "run", "src/app.ts"]
