@@ -71,7 +71,7 @@ export const OrderController = {
     createOrder: async (ctx: any) => {
         try {
             const { body, server } = ctx;
-            const { storeId, tableId, items } = body;
+            const { storeId, tableId, items, paymentStatus } = body;
 
             // 1. Verify table exists and belongs to store
             const targetTable = await db.query.table.findFirst({
@@ -79,24 +79,13 @@ export const OrderController = {
             });
             if (!targetTable) throw new Error("Invalid table");
 
-            // 2. Get or Create Session
+            // 2. Get Session
             let session = await db.query.tableSession.findFirst({
                 where: and(
                     eq(tableSession.tableId, tableId),
                     eq(tableSession.status, "occupied")
                 )
             });
-
-            if (!session) {
-                const sessionId = crypto.randomUUID();
-                await db.insert(tableSession).values({
-                    id: sessionId,
-                    tableId,
-                    storeId,
-                    status: "occupied"
-                });
-                session = { id: sessionId } as any;
-            }
 
             // 3. Fetch Items to validate prices (prevent spoofing)
             const itemIds = items.map((i: any) => i.menuItemId);
@@ -136,9 +125,9 @@ export const OrderController = {
                     id: orderId,
                     storeId,
                     tableId,
-                    tableSessionId: session!.id,
+                    tableSessionId: session ? session.id : null,
                     orderStatus: "pending",
-                    paymentStatus: "unpaid",
+                    paymentStatus: paymentStatus || "unpaid",
                     paymentMethod: "upi",
                     taxAmount: (subtotal * tax).toString(),
                     billSubtotal: subtotal.toString(),
@@ -153,10 +142,12 @@ export const OrderController = {
                     });
                 }
 
-                // Update Table Status
-                await tx.update(table)
-                    .set({ isOccupied: true })
-                    .where(eq(table.id, tableId));
+                // Update Table Status only if session exists
+                if (session) {
+                    await tx.update(table)
+                        .set({ isOccupied: true })
+                        .where(eq(table.id, tableId));
+                }
             });
 
             // 6. Broadcast via WebSockets
@@ -165,7 +156,7 @@ export const OrderController = {
                     orderId,
                     tableId,
                     tableLabel: targetTable.tableLabel,
-                    tableSessionId: session!.id,
+                    tableSessionId: session ? session.id : null,
                     totalAmount: totalAmount.toFixed(2),
                     items: orderItemsToInsert
                 });
@@ -176,7 +167,7 @@ export const OrderController = {
                 message: "Order placed successfully",
                 data: { 
                     orderId, 
-                    tableSessionId: session!.id,
+                    tableSessionId: session ? session.id : null,
                     totalAmount: totalAmount.toFixed(2)
                 }
             };
@@ -206,7 +197,7 @@ export const OrderController = {
                     store: true,
                     table: true,
                     orders: {
-                        where: not(eq(order.orderStatus, "cancelled")),
+                        where: not(inArray(order.orderStatus, ["cancelled", "declined"])),
                         with: {
                             details: true
                         }

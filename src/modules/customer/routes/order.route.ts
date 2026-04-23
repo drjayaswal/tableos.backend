@@ -13,7 +13,8 @@ export const orderRoutes = new Elysia({ prefix: '/order' })
                 price: t.String(),
                 customerNote: t.Optional(t.String())
             })),
-            totalAmount: t.String()
+            totalAmount: t.String(),
+            paymentStatus: t.Optional(t.String())
         })
     })
     .get('/status', (ctx) => OrderController.checkStatus(ctx), {

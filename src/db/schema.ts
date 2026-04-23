@@ -13,7 +13,7 @@ import {
 
 export const StoreCategory = pgEnum("store_type", ["cafe", "hotel", "restaurant"]);
 export const StoreCurrency = pgEnum("currency", ["INR", "USD", "EUR"]);
-export const OrderStatus = pgEnum("order_status", ["pending", "confirmed", "preparing", "ready", "served", "cancelled"]);
+export const OrderStatus = pgEnum("order_status", ["pending", "confirmed", "accepted", "declined", "preparing", "ready", "served", "cancelled"]);
 export const BillStatus = pgEnum("bill_status", ["unpaid", "paid", "refunded", "partially_paid"]);
 export const StaffRole = pgEnum("staff_role", ["owner", "staff", "customer"]);
 export const PaymentMethod = pgEnum("payment_method", ["cash", "upi", "card"]);
