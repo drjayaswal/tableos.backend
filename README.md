@@ -1,3 +1,12 @@
+---
+title: tableos
+emoji: 🍽️
+colorFrom: purple
+colorTo: yellow
+sdk: docker
+app_port: 7860
+---
+
 # tableOS Backend ⚙️
 
 The event-driven API engine for tableOS, built with **Bun**, **ElysiaJS**, and **Socket.IO**.
