@@ -215,23 +215,45 @@ export const verification = pgTable("verification", {
   createdAt: timestamp("createdAt"),
   updatedAt: timestamp("updatedAt"),
 });
+// ----------------------------------------------------
+// Relations (Fixed & Complete)
+// ----------------------------------------------------
+export const userRelations = relations(user, ({ one }) => ({
+  store: one(store, {
+    fields: [user.storeId],
+    references: [store.id],
+  }),
+}));
 export const storeRelations = relations(store, ({ many }) => ({
-  staff: many(user),
+  users: many(user),
   tables: many(table),
   orders: many(order),
 }));
-export const orderRelations = relations(order, ({ one, many }) => ({
-  details: many(orderItem),
-  table: one(table, { fields: [order.tableId], references: [table.id] }),
-  store: one(store, { fields: [order.storeId], references: [store.id] }),
-  session: one(tableSession, { fields: [order.tableSessionId], references: [tableSession.id] }),
+export const tableRelations = relations(table, ({ one, many }) => ({
+  store: one(store, { fields: [table.storeId], references: [store.id] }),
+  sessions: many(tableSession),
+  orders: many(order),
 }));
+
 export const tableSessionRelations = relations(tableSession, ({ one, many }) => ({
   store: one(store, { fields: [tableSession.storeId], references: [store.id] }),
   table: one(table, { fields: [tableSession.tableId], references: [table.id] }),
   orders: many(order)
 }));
 
+export const orderRelations = relations(order, ({ one, many }) => ({
+  details: many(orderItem),
+  table: one(table, { fields: [order.tableId], references: [table.id] }),
+  store: one(store, { fields: [order.storeId], references: [store.id] }),
+  session: one(tableSession, { fields: [order.tableSessionId], references: [tableSession.id] }),
+  customer: one(user, { fields: [order.customerId], references: [user.id] }),
+}));
+
 export const orderItemRelations = relations(orderItem, ({ one }) => ({
-  order: one(order, { fields: [orderItem.orderId], references: [order.id] })
+  order: one(order, { fields: [orderItem.orderId], references: [order.id] }),
+  menuItem: one(menuItem, { fields: [orderItem.menuItemId], references: [menuItem.id] }),
+}));
+
+export const menuItemRelations = relations(menuItem, ({ one }) => ({
+  store: one(store, { fields: [menuItem.storeId], references: [store.id] }),
 }));

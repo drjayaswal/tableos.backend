@@ -1,6 +1,6 @@
-import { eq, sql } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 import { asyncDb, db } from '../../../db';
-import { store, table } from '../../../db/schema';
+import { menuItem, order, store, table, tableSession } from '../../../db/schema';
 
 /**
  * StoreController (Store Management)
@@ -63,6 +63,80 @@ export const StoreController = {
             };
         }
     },
+    /**
+     * getStoreData
+     * Retrieves a deep-nested dashboard payload for a specific store.
+     */
+    getStoreData: async ({ params }: any) => {
+        try {
+            const { storeId } = params;
+
+            const storeData = await db.query.store.findFirst({
+                where: eq(store.id, storeId),
+                with: {
+                    users: {
+                        columns: {
+                            id: true,
+                            name: true,
+                            email: true,
+                            role: true,
+                        }
+                    },
+                    tables: true,
+                    orders: {
+                        orderBy: [desc(order.orderedAt)],
+                        limit: 50,
+                        with: {
+                            details: true
+                        }
+                    },
+                },
+            });
+
+            if (!storeData) {
+                return {
+                    status: 404,
+                    message: "Store not found.",
+                    data: {}
+                };
+            }
+
+            const menuItemsCount = await db.query.menuItem.findMany({
+                where: eq(menuItem.storeId, storeId),
+            });
+
+            const activeSessions = await db.query.tableSession.findMany({
+                where: eq(tableSession.storeId, storeId),
+            });
+
+            const dashboardPayload = {
+                ...storeData,
+                menu: menuItemsCount,
+                activeSessions: activeSessions,
+                stats: {
+                    totalTables: storeData.tables.length,
+                    occupiedTables: storeData.tables.filter(t => t.isOccupied).length,
+                    totalMenuItems: menuItemsCount.length,
+                    recentOrdersCount: storeData.orders.length,
+                    recentRevenue: storeData.orders.reduce((acc, curr) => acc + Number(curr.totalAmount), 0)
+                }
+            };
+
+            return {
+                status: 200,
+                message: "Dashboard data fetched successfully.",
+                data: dashboardPayload
+            };
+
+        } catch (error: any) {
+            console.error("[STORE_FETCH_ERROR]:", error);
+            return {
+                status: 500,
+                message: "Failed to fetch dashboard data.",
+                data: {}
+            };
+        }
+    },
     /** 
      * getStore
      * Retrieves the basic profile and configuration of a specific store.
@@ -96,12 +170,6 @@ export const StoreController = {
             };
         }
     },
-    /** 
-     * getStoreTables
-     * Retrieves the basic profile and configuration of a specific store.
-     * Input: { storeId }
-     * Output: { tables }
-     */
     /** 
      * listStoreTables
      * Retrieves individual tables for a store with occupancy status.

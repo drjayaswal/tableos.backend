@@ -17,6 +17,12 @@ export const storeRoutes = new Elysia()
         ...CommonResponse
     })
     /**
+     * @endpoint GET /store/:storeId/data
+     */
+    .get('/store/:storeId/data', (ctx) => StoreController.getStoreData(ctx), {
+        ...CommonResponse
+    })
+    /**
      * @endpoint GET /store/:storeId
      */
     .get('/store/:storeId', (ctx) => StoreController.getStore(ctx), {
