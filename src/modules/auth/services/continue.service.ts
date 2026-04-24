@@ -36,7 +36,7 @@ export const AuthController = {
             if (!foundUser) {
                 return {
                     status: 400,
-                    message: `No account with ${email} exists`,
+                    message: `No such "${email.split("@")[0]}..." email exists`,
                     data: {}
                 };
             }
